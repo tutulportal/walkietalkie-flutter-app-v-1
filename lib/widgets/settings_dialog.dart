@@ -66,7 +66,7 @@ class _SettingsDialogState extends State<SettingsDialog> {
   void _save() {
     final updated = widget.config.copyWith(
       serverUrl: _serverController.text.trim().isEmpty
-          ? 'ws://localhost:8080'
+          ? 'wss://walkietalkie-flutter-app-v-1.onrender.com'
           : _serverController.text.trim(),
       roomCode: _roomCodeController.text.trim().isEmpty
           ? 'ALPHA'
@@ -139,7 +139,7 @@ class _SettingsDialogState extends State<SettingsDialog> {
                   fontSize: 13,
                 ),
                 decoration: InputDecoration(
-                  hintText: 'ws://192.168.1.15:8080 or ws://localhost:8080',
+                  hintText: 'wss://walkietalkie-flutter-app-v-1.onrender.com',
                   hintStyle: const TextStyle(color: Colors.white30, fontSize: 12),
                   filled: true,
                   fillColor: const Color(0xFF101215),
@@ -165,9 +165,9 @@ class _SettingsDialogState extends State<SettingsDialog> {
                 spacing: 6,
                 runSpacing: 4,
                 children: [
+                  _buildQuickUrlChip('wss://walkietalkie-flutter-app-v-1.onrender.com', 'Render Cloud'),
                   _buildQuickUrlChip('ws://localhost:8080', 'Local PC'),
                   _buildQuickUrlChip('ws://10.0.2.2:8080', 'Android Emu'),
-                  _buildQuickUrlChip('ws://192.168.1.100:8080', 'Sample WiFi'),
                 ],
               ),
 
@@ -359,6 +359,67 @@ class _SettingsDialogState extends State<SettingsDialog> {
                   onChanged: (val) {
                     setState(() => _squelchLevel = val.round());
                   },
+                ),
+              ),
+
+              const SizedBox(height: 16),
+
+              // Creator & Lead Developer Info Card
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF101215),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFFFF9E1B).withOpacity(0.4)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: const [
+                    Row(
+                      children: [
+                        Icon(Icons.military_tech, color: Color(0xFFFF9E1B), size: 16),
+                        SizedBox(width: 6),
+                        Text(
+                          'SYSTEM CREATOR & ARCHITECT',
+                          style: TextStyle(
+                            fontFamily: 'monospace',
+                            color: Color(0xFFFF9E1B),
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 1.0,
+                          ),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: 6),
+                    Text(
+                      'Creator: Tutul',
+                      style: TextStyle(
+                        fontFamily: 'monospace',
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    SizedBox(height: 2),
+                    Text(
+                      'GitHub: @tutulportal',
+                      style: TextStyle(
+                        fontFamily: 'monospace',
+                        color: Color(0xFF00FF66),
+                        fontSize: 11,
+                      ),
+                    ),
+                    SizedBox(height: 2),
+                    Text(
+                      'Project: walkietalkie-flutter-app-v-1',
+                      style: TextStyle(
+                        fontFamily: 'monospace',
+                        color: Color(0xFF90A4AE),
+                        fontSize: 9.5,
+                      ),
+                    ),
+                  ],
                 ),
               ),
 

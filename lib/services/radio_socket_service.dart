@@ -45,7 +45,15 @@ class RadioSocketService {
     required int channel,
     required String callSign,
   }) async {
-    _currentServerUrl = serverUrl.trim();
+    String cleanUrl = serverUrl.trim();
+    if (cleanUrl.startsWith('https://')) {
+      cleanUrl = 'wss://${cleanUrl.substring(8)}';
+    } else if (cleanUrl.startsWith('http://')) {
+      cleanUrl = 'ws://${cleanUrl.substring(7)}';
+    } else if (!cleanUrl.startsWith('ws://') && !cleanUrl.startsWith('wss://')) {
+      cleanUrl = 'wss://$cleanUrl';
+    }
+    _currentServerUrl = cleanUrl;
     _currentRoomCode = roomCode.trim().toUpperCase();
     _currentChannel = channel;
     _currentCallSign = callSign.trim();

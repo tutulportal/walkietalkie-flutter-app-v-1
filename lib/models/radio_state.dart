@@ -24,7 +24,7 @@ class RadioConfig {
   bool hapticFeedback;
 
   RadioConfig({
-    this.serverUrl = 'ws://localhost:8080',
+    this.serverUrl = 'wss://walkietalkie-flutter-app-v-1.onrender.com',
     this.roomCode = 'ALPHA',
     this.callSign = 'VIPER-01',
     this.rogerBeepStyle = 'STANDARD',

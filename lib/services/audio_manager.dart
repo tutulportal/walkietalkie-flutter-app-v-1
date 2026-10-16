@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
@@ -93,7 +94,30 @@ class AudioManager {
 
       await _sfxPlayer.setVolume(_volume);
       await _staticPlayer.setVolume(_volume * 0.35);
-      await _voicePlayer.setVolume(_volume);
+      await _voicePlayer.setVolume(1.0);
+
+      // Configure global audio context for loud speakerphone and background playback
+      try {
+        await AudioPlayer.global.setAudioContext(
+          AudioContext(
+            android: const AudioContextAndroid(
+              isSpeakerphoneOn: true,
+              stayAwake: true,
+              contentType: AndroidContentType.speech,
+              usageType: AndroidUsageType.voiceCommunicationSignalling,
+              audioMode: AndroidAudioMode.normal,
+            ),
+            iOS: AudioContextIOS(
+              category: AVAudioSessionCategory.playback,
+              options: const {
+                AVAudioSessionOptions.defaultToSpeaker,
+              },
+            ),
+          ),
+        );
+      } catch (e) {
+        debugPrint('[AudioManager] AudioContext config note: $e');
+      }
 
       _isInitialized = true;
     } catch (e) {
@@ -238,21 +262,49 @@ class AudioManager {
     await playRogerBeep(rogerBeepStyle);
   }
 
+  final BytesBuilder _incomingVoiceBuffer = BytesBuilder();
+
   /// Called when remote transmission begins
   Future<void> onIncomingRxStart() async {
+    _incomingVoiceBuffer.clear();
     // Play subtle background radio static hiss behind incoming voice
-    await startStaticNoise(volumeRatio: 0.2);
+    await startStaticNoise(volumeRatio: 0.15);
   }
 
   /// Feed incoming audio chunk to playback
-  Future<void> onIncomingAudioChunk(Uint8List chunk) async {
-    // Audio stream playback or synthesis buffer
-    // On receiving raw audio chunks, we can write small buffered WAV or play
+  void onIncomingAudioChunk(Uint8List chunk) {
+    if (chunk.isNotEmpty) {
+      _incomingVoiceBuffer.add(chunk);
+    }
   }
 
   /// Called when remote transmission ends
   Future<void> onIncomingRxEnd({String rogerBeepStyle = 'STANDARD'}) async {
     await stopStaticNoise();
+
+    // Play accumulated voice audio if present
+    final rawPcm = _incomingVoiceBuffer.takeBytes();
+    if (rawPcm.length > 320) {
+      try {
+        final wavBytes = SoundGenerator.createWavFromPcm16(rawPcm, sampleRate: 16000);
+        final tempDir = await getTemporaryDirectory();
+        final voiceFile = File('${tempDir.path}/walkie_audio/rx_voice_${DateTime.now().millisecondsSinceEpoch}.wav');
+        await voiceFile.writeAsBytes(wavBytes);
+
+        // Ensure maximum loud volume for background listening
+        await _voicePlayer.setVolume(1.0);
+        await _voicePlayer.play(DeviceFileSource(voiceFile.path));
+
+        // Wait for voice playback to finish (or max 12 seconds)
+        await _voicePlayer.onPlayerComplete.first.timeout(
+          const Duration(seconds: 12),
+          onTimeout: () => null,
+        );
+      } catch (e) {
+        debugPrint('[AudioManager] voice playback error: $e');
+      }
+    }
+
     // Play roger beep followed by squelch tail burst
     await playRogerBeep(rogerBeepStyle);
     await Future.delayed(const Duration(milliseconds: 140));

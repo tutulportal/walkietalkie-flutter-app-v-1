@@ -287,6 +287,50 @@ class SoundGenerator {
 
     return byteData.buffer.asUint8List();
   }
+
+  /// Wraps raw 16-bit PCM byte data into a playable RIFF WAV byte array
+  static Uint8List createWavFromPcm16(Uint8List pcmBytes, {int sampleRate = 16000}) {
+    final byteData = ByteData(44 + pcmBytes.length);
+
+    // "RIFF"
+    byteData.setUint8(0, 0x52);
+    byteData.setUint8(1, 0x49);
+    byteData.setUint8(2, 0x46);
+    byteData.setUint8(3, 0x46);
+    byteData.setUint32(4, 36 + pcmBytes.length, Endian.little);
+
+    // "WAVE"
+    byteData.setUint8(8, 0x57);
+    byteData.setUint8(9, 0x41);
+    byteData.setUint8(10, 0x56);
+    byteData.setUint8(11, 0x45);
+
+    // "fmt "
+    byteData.setUint8(12, 0x66);
+    byteData.setUint8(13, 0x6D);
+    byteData.setUint8(14, 0x74);
+    byteData.setUint8(15, 0x20);
+
+    byteData.setUint32(16, 16, Endian.little); // PCM subchunk size
+    byteData.setUint16(20, 1, Endian.little);  // Format = PCM
+    byteData.setUint16(22, 1, Endian.little);  // Channels = Mono
+    byteData.setUint32(24, sampleRate, Endian.little); // 16000 Hz
+    byteData.setUint32(28, sampleRate * 2, Endian.little); // Byte rate
+    byteData.setUint16(32, 2, Endian.little);  // Block align
+    byteData.setUint16(34, 16, Endian.little); // Bits per sample
+
+    // "data"
+    byteData.setUint8(36, 0x64);
+    byteData.setUint8(37, 0x61);
+    byteData.setUint8(38, 0x74);
+    byteData.setUint8(39, 0x61);
+    byteData.setUint32(40, pcmBytes.length, Endian.little);
+
+    final out = Uint8List(44 + pcmBytes.length);
+    out.setRange(0, 44, byteData.buffer.asUint8List());
+    out.setRange(44, 44 + pcmBytes.length, pcmBytes);
+    return out;
+  }
 }
 
 class ToneSpec {

@@ -7,7 +7,9 @@ import 'models/radio_channel.dart';
 import 'models/radio_state.dart';
 import 'services/audio_manager.dart';
 import 'services/radio_socket_service.dart';
+import 'widgets/about_creator_dialog.dart';
 import 'widgets/settings_dialog.dart';
+import 'widgets/startup_permission_dialog.dart';
 import 'widgets/walkie_talkie_chassis.dart';
 
 void main() async {
@@ -87,13 +89,25 @@ class _WalkieTalkieScreenState extends State<WalkieTalkieScreen> {
 
     // 4. Connect to server
     _connectToServer();
+
+    // 5. Trigger startup permissions dialog if required
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        StartupPermissionDialog.checkAndShow(context);
+      }
+    });
   }
 
   Future<void> _loadConfig() async {
     final prefs = await SharedPreferences.getInstance();
+    final savedUrl = prefs.getString('server_url');
+    final serverUrl = (savedUrl == null || savedUrl == 'ws://localhost:8080' || savedUrl == 'ws://10.0.2.2:8080')
+        ? 'wss://walkietalkie-flutter-app-v-1.onrender.com'
+        : savedUrl;
+
     setState(() {
       _config = RadioConfig(
-        serverUrl: prefs.getString('server_url') ?? 'ws://localhost:8080',
+        serverUrl: serverUrl,
         roomCode: prefs.getString('room_code') ?? 'ALPHA',
         callSign: prefs.getString('call_sign') ?? 'VIPER-01',
         rogerBeepStyle: prefs.getString('roger_beep') ?? 'STANDARD',
@@ -331,6 +345,13 @@ class _WalkieTalkieScreenState extends State<WalkieTalkieScreen> {
     );
   }
 
+  void _onOpenAboutCreator() {
+    showDialog(
+      context: context,
+      builder: (ctx) => const AboutCreatorDialog(),
+    );
+  }
+
   @override
   void dispose() {
     _scanTimer?.cancel();
@@ -438,6 +459,11 @@ class _WalkieTalkieScreenState extends State<WalkieTalkieScreen> {
                 ),
               ],
             ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.info_outline, color: Color(0xFF00FF66)),
+            tooltip: 'System Creator & Specs (Tutul)',
+            onPressed: _onOpenAboutCreator,
           ),
           IconButton(
             icon: const Icon(Icons.tune, color: Color(0xFFFF9E1B)),
