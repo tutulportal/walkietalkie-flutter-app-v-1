@@ -1,0 +1,12 @@
+{
+  "name": "walkie-talkie-server",
+  "version": "1.0.0",
+  "description": "High performance low latency audio relay server for walkie talkie app",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}
