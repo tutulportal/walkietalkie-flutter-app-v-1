@@ -266,7 +266,7 @@ class WalkieTalkieChassis extends StatelessWidget {
 
   Widget _buildTopAntennaAndKnobs() {
     return Container(
-      height: 78,
+      height: 84,
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.end,

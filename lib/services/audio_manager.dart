@@ -1,9 +1,7 @@
 import 'dart:async';
-import 'dart:io';
 import 'dart:typed_data';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/foundation.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:record/record.dart';
 import 'sound_generator.dart';
@@ -26,13 +24,13 @@ class AudioManager {
   bool _isMonitorOpen = false;
   bool get isMonitorOpen => _isMonitorOpen;
 
-  // Cached file paths for low latency playback
-  String? _pttChirpPath;
-  String? _squelchTailPath;
-  String? _callAlertPath;
-  String? _knobClickPath;
-  String? _staticLoopPath;
-  final Map<String, String> _rogerBeepPaths = {};
+  // Cached audio byte arrays for instant zero-latency playback across mobile and web
+  Uint8List? _pttChirpBytes;
+  Uint8List? _squelchTailBytes;
+  Uint8List? _callAlertBytes;
+  Uint8List? _knobClickBytes;
+  Uint8List? _staticLoopBytes;
+  final Map<String, Uint8List> _rogerBeepBytes = {};
 
   bool _isInitialized = false;
   bool get isInitialized => _isInitialized;
@@ -41,43 +39,13 @@ class AudioManager {
     if (_isInitialized) return;
 
     try {
-      final tempDir = await getTemporaryDirectory();
-      final cacheDir = Directory('${tempDir.path}/walkie_audio');
-      if (!cacheDir.existsSync()) {
-        cacheDir.createSync(recursive: true);
-      }
+      // Synthesize sound effects into memory buffers
+      _pttChirpBytes = SoundGenerator.createPttPressChirp();
+      _squelchTailBytes = SoundGenerator.createSquelchTail();
+      _callAlertBytes = SoundGenerator.createCallAlert();
+      _knobClickBytes = SoundGenerator.createKnobClick();
+      _staticLoopBytes = SoundGenerator.createRadioStaticLoop(durationSec: 2.0);
 
-      // 1. Synthesize & cache PTT Chirp
-      final chirpBytes = SoundGenerator.createPttPressChirp();
-      final chirpFile = File('${cacheDir.path}/ptt_chirp.wav');
-      await chirpFile.writeAsBytes(chirpBytes);
-      _pttChirpPath = chirpFile.path;
-
-      // 2. Synthesize & cache Squelch Tail
-      final squelchBytes = SoundGenerator.createSquelchTail();
-      final squelchFile = File('${cacheDir.path}/squelch_tail.wav');
-      await squelchFile.writeAsBytes(squelchBytes);
-      _squelchTailPath = squelchFile.path;
-
-      // 3. Synthesize & cache Call Alert Chime
-      final callBytes = SoundGenerator.createCallAlert();
-      final callFile = File('${cacheDir.path}/call_alert.wav');
-      await callFile.writeAsBytes(callBytes);
-      _callAlertPath = callFile.path;
-
-      // 4. Synthesize & cache Knob Click
-      final knobBytes = SoundGenerator.createKnobClick();
-      final knobFile = File('${cacheDir.path}/knob_click.wav');
-      await knobFile.writeAsBytes(knobBytes);
-      _knobClickPath = knobFile.path;
-
-      // 5. Synthesize & cache Static Loop
-      final staticBytes = SoundGenerator.createRadioStaticLoop(durationSec: 2.0);
-      final staticFile = File('${cacheDir.path}/radio_static.wav');
-      await staticFile.writeAsBytes(staticBytes);
-      _staticLoopPath = staticFile.path;
-
-      // 6. Synthesize Roger Beep variations
       final styles = [
         'STANDARD',
         'BAOFENG',
@@ -86,10 +54,7 @@ class AudioManager {
         'MILITARY_TRIAD'
       ];
       for (final style in styles) {
-        final beepBytes = SoundGenerator.createRogerBeep(style);
-        final beepFile = File('${cacheDir.path}/roger_${style.toLowerCase()}.wav');
-        await beepFile.writeAsBytes(beepBytes);
-        _rogerBeepPaths[style] = beepFile.path;
+        _rogerBeepBytes[style] = SoundGenerator.createRogerBeep(style);
       }
 
       await _sfxPlayer.setVolume(_volume);
@@ -108,7 +73,7 @@ class AudioManager {
               audioMode: AndroidAudioMode.normal,
             ),
             iOS: AudioContextIOS(
-              category: AVAudioSessionCategory.playback,
+              category: AVAudioSessionCategory.playAndRecord,
               options: const {
                 AVAudioSessionOptions.defaultToSpeaker,
               },
@@ -133,44 +98,44 @@ class AudioManager {
   }
 
   Future<void> playKnobClick() async {
-    if (_knobClickPath == null) return;
+    if (_knobClickBytes == null) return;
     try {
       await _sfxPlayer.stop();
-      await _sfxPlayer.play(DeviceFileSource(_knobClickPath!), volume: _volume * 0.6);
+      await _sfxPlayer.play(BytesSource(_knobClickBytes!), volume: _volume * 0.6);
     } catch (_) {}
   }
 
   Future<void> playPttChirp() async {
-    if (_pttChirpPath == null) return;
+    if (_pttChirpBytes == null) return;
     try {
       await _sfxPlayer.stop();
-      await _sfxPlayer.play(DeviceFileSource(_pttChirpPath!), volume: _volume * 0.9);
+      await _sfxPlayer.play(BytesSource(_pttChirpBytes!), volume: _volume * 0.9);
     } catch (_) {}
   }
 
   Future<void> playRogerBeep(String style) async {
     if (style == 'OFF') return;
-    final path = _rogerBeepPaths[style] ?? _rogerBeepPaths['STANDARD'];
-    if (path == null) return;
+    final bytes = _rogerBeepBytes[style] ?? _rogerBeepBytes['STANDARD'];
+    if (bytes == null) return;
     try {
       await _sfxPlayer.stop();
-      await _sfxPlayer.play(DeviceFileSource(path), volume: _volume * 0.85);
+      await _sfxPlayer.play(BytesSource(bytes), volume: _volume * 0.85);
     } catch (_) {}
   }
 
   Future<void> playSquelchTail() async {
-    if (_squelchTailPath == null) return;
+    if (_squelchTailBytes == null) return;
     try {
       await _sfxPlayer.stop();
-      await _sfxPlayer.play(DeviceFileSource(_squelchTailPath!), volume: _volume);
+      await _sfxPlayer.play(BytesSource(_squelchTailBytes!), volume: _volume);
     } catch (_) {}
   }
 
   Future<void> playCallAlert() async {
-    if (_callAlertPath == null) return;
+    if (_callAlertBytes == null) return;
     try {
       await _sfxPlayer.stop();
-      await _sfxPlayer.play(DeviceFileSource(_callAlertPath!), volume: _volume);
+      await _sfxPlayer.play(BytesSource(_callAlertBytes!), volume: _volume);
     } catch (_) {}
   }
 
@@ -185,10 +150,10 @@ class AudioManager {
   }
 
   Future<void> startStaticNoise({double volumeRatio = 0.25}) async {
-    if (_staticLoopPath == null) return;
+    if (_staticLoopBytes == null) return;
     try {
       await _staticPlayer.setReleaseMode(ReleaseMode.loop);
-      await _staticPlayer.play(DeviceFileSource(_staticLoopPath!), volume: _volume * volumeRatio);
+      await _staticPlayer.play(BytesSource(_staticLoopBytes!), volume: _volume * volumeRatio);
     } catch (_) {}
   }
 
@@ -200,11 +165,11 @@ class AudioManager {
 
   /// Request microphone permission
   Future<bool> checkPermission() async {
-    if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
-      final status = await Permission.microphone.request();
-      return status == PermissionStatus.granted;
+    if (kIsWeb) {
+      return await _recorder.hasPermission();
     }
-    return true;
+    final status = await Permission.microphone.request();
+    return status == PermissionStatus.granted;
   }
 
   /// Start PTT audio recording stream
@@ -287,13 +252,9 @@ class AudioManager {
     if (rawPcm.length > 320) {
       try {
         final wavBytes = SoundGenerator.createWavFromPcm16(rawPcm, sampleRate: 16000);
-        final tempDir = await getTemporaryDirectory();
-        final voiceFile = File('${tempDir.path}/walkie_audio/rx_voice_${DateTime.now().millisecondsSinceEpoch}.wav');
-        await voiceFile.writeAsBytes(wavBytes);
-
         // Ensure maximum loud volume for background listening
         await _voicePlayer.setVolume(1.0);
-        await _voicePlayer.play(DeviceFileSource(voiceFile.path));
+        await _voicePlayer.play(BytesSource(wavBytes));
 
         // Wait for voice playback to finish (or max 12 seconds)
         await _voicePlayer.onPlayerComplete.first.timeout(

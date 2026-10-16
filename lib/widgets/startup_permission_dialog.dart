@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 
@@ -10,6 +11,7 @@ class StartupPermissionDialog extends StatefulWidget {
   });
 
   static Future<void> checkAndShow(BuildContext context) async {
+    if (kIsWeb) return;
     final mic = await Permission.microphone.isGranted;
     final notif = await Permission.notification.isGranted;
 
